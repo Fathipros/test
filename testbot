@@ -1,0 +1,51 @@
+from telethon import TelegramClient, events
+import re
+
+# Credenciales de tu aplicación
+api_id = 21624174  # Tu App api_id
+api_hash = '77ecc8417db79e8d71db584edcf382d3'  # Tu App api_hash
+phone_number = '+34632768152'  # Tu número de teléfono
+source_group_id = 1935880746  # ID del grupo donde se publican los archivos
+destination_group_ids = [2319304722, 2404515339, 2250834473, 2256277964, 2476835886]  # IDs de tus grupos de destino
+
+# Inicializa el cliente de Telethon
+client = TelegramClient('session_name', api_id, api_hash)
+
+async def main():
+    # Inicia sesión con tu cuenta de Telegram
+    await client.start(phone_number)
+
+    # Manejar nuevos mensajes en el grupo de origen
+    @client.on(events.NewMessage(chats=source_group_id))
+    async def handler(event):
+        # Verificar si el mensaje contiene un archivo
+        if event.message.document:
+            # Extraer la contraseña del mensaje
+            message_text = event.message.message
+            password = None
+
+            # Buscar la contraseña en el mensaje
+            match = re.search(r'pass:\s*([\S]+)', message_text)
+            if match:
+                password = match.group(1)  # La contraseña encontrada
+
+            # Crear el mensaje a enviar con "pass:" y sin espacio adicional
+            if password:
+                combined_message = f"pass: `{password}`"
+            else:
+                combined_message = "No se encontró contraseña."
+
+            # Iterar sobre los grupos de destino
+            for destination_group_id in destination_group_ids:
+                # Obtener la entidad del grupo de destino
+                destination_group = await client.get_input_entity(destination_group_id)
+                
+                # Reenviar el archivo y el mensaje al grupo de destino
+                await client.send_file(destination_group, event.message, caption=combined_message)
+                print(f"Archivo reenviado de {source_group_id} a {destination_group_id} con la contraseña.")
+
+    print("Monitoreando el grupo para archivos y contraseñas...")
+    await client.run_until_disconnected()
+
+with client:
+    client.loop.run_until_complete(main())
